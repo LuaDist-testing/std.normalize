@@ -1,0 +1,116 @@
+# Many of these examples are a lot trickier than they look!
+#
+#  0. Specl is already doing weird things with `require` to ensure
+#     that it runs in the context of the example and not in the
+#     environment of the Specl implementation code, so things are
+#     weird even before we touch anything here!
+#  1. We need to capture (into local symbols) anything we still need
+#     access to after calling `_strict`, because at that point
+#     the execution environment is obliterated...
+#  2. But, we can't capture `require` blindly, because some examples
+#     rely on changing the global `require` used inside the `_typecheck`
+#     implementation... and yet other examples call `require` after
+#     calling `_strict` (and obliterating the environment).
+#
+# Don't be surprised if fiddling with these examples, or the code
+# they exercise breaks in surprising ways at first!
+
+before: |
+  this_module = "std.normalize._typecheck"
+
+  M = require (this_module)
+
+specify std.normalize._typecheck:
+- context when required:
+  - it does not touch the global table:
+      expect (show_apis {added_to="_G", by=this_module}).
+        to_equal {}
+
+
+- describe argscheck:
+  - before: |
+      preamble = [[
+        argscheck = require "std.normalize._typecheck".argscheck
+        function inner () return "MAGIC" end
+        types = {
+          woot = function () return true end,
+          ohno = function (t, i) return nil, nil, type (t[i]) .. " unexpected" end,
+        }
+        local function exit (x) os.exit (x and 0 or 1) end
+      ]]
+  - context global _DEBUG is nil:
+    - it wraps the inner function:
+        expect (luaproc (preamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          print (magic ())
+          exit (magic ~= inner)
+        ]])).to_succeed_with "MAGIC\n"
+    - it diagnoses argument validation failures: |
+        expect (luaproc (preamble .. [[
+          (argscheck ("magic", types.ohno) .. inner) "fail"
+        ]])).to_fail_while_matching "bad argument #1 to 'magic' %(string unexpected%)"
+  - context global _DEBUG is false:
+    - before: |
+        shamble = [[
+          _DEBUG = false
+        ]] .. preamble
+    - it returns a pass-through decorator:
+        expect (luaproc (shamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          exit (magic == inner)
+        ]])).to_succeed_with ""
+  - context global _DEBUG is true:
+    - before: |
+        shamble = [[
+          _DEBUG = true
+        ]] .. preamble
+    - it wraps the inner function:
+        expect (luaproc (shamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          print (magic ())
+          exit (magic ~= inner)
+        ]])).to_succeed_with "MAGIC\n"
+    - it diagnoses argument validation failures: |
+        expect (luaproc (shamble .. [[
+          (argscheck ("magic", types.ohno) .. inner) "fail"
+        ]])).to_fail_while_matching "bad argument #1 to 'magic' %(string unexpected%)"
+  - context global _DEBUG.argcheck is nil:
+    - before: |
+        shamble = [[
+          _DEBUG = { argcheck = nil }
+        ]] .. preamble
+    - it wraps the inner function:
+        expect (luaproc (shamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          print (magic ())
+          exit (magic ~= inner)
+        ]])).to_succeed_with "MAGIC\n"
+    - it diagnoses argument validation failures: |
+        expect (luaproc (shamble .. [[
+          (argscheck ("magic", types.ohno) .. inner) "fail"
+        ]])).to_fail_while_matching "bad argument #1 to 'magic' %(string unexpected%)"
+  - context global _DEBUG.argcheck is false:
+    - before: |
+        shamble = [[
+          _DEBUG = { argcheck = false }
+        ]] .. preamble
+    - it returns a pass-through decorator:
+        expect (luaproc (shamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          exit (magic == inner)
+        ]])).to_succeed_with ""
+  - context global _DEBUG.argcheck is true:
+    - before: |
+        shamble = [[
+          _DEBUG = { argcheck = true }
+        ]] .. preamble
+    - it wraps the inner function:
+        expect (luaproc (shamble .. [[
+          magic = argscheck ("magic", types.woot) .. inner
+          print (magic ())
+          exit (magic ~= inner)
+        ]])).to_succeed_with "MAGIC\n"
+    - it diagnoses argument validation failures: |
+        expect (luaproc (shamble .. [[
+          (argscheck ("magic", types.ohno) .. inner) "fail"
+        ]])).to_fail_while_matching "bad argument #1 to 'magic' %(string unexpected%)"

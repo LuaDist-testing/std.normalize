@@ -1,0 +1,4 @@
+.DS_Store
+/*.rock
+/doc/config.ld
+/luacov.*.out
