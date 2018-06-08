@@ -1,10 +1,13 @@
+# Normalized Lua API for Lua 5.1, 5.2 & 5.3
+# Copyright (C) 2002-2018 std.normalize authors
+
 LDOC	= ldoc
 LUA	= lua
 MKDIR	= mkdir -p
 SED	= sed
 SPECL	= specl
 
-VERSION	= 2.0.1
+VERSION	= 2.0.2
 
 luadir	= lib/std/normalize
 SOURCES =				\
@@ -19,14 +22,8 @@ SOURCES =				\
 all:
 
 
-$(luadir)/version.lua: .FORCE
-	@echo 'return "Normalized Lua Functions / $(VERSION)"' > '$@T';		\
-	if cmp -s '$@' '$@T'; then						\
-	    rm -f '$@T';							\
-	else									\
-	    echo 'echo "Normalized Lua Functions / $(VERSION)" > $@';		\
-	    mv '$@T' '$@';							\
-	fi
+$(luadir)/version.lua: Makefile
+	@echo 'return "Normalized Lua Functions / $(VERSION)"' > '$@'
 
 doc: build-aux/config.ld $(SOURCES)
 	$(LDOC) -c build-aux/config.ld .

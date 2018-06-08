@@ -1,6 +1,6 @@
 -- This file was automatically generated for the LuaDist project.
 
-local _MODREV, _SPECREV = '2.0.1', '-1'
+local _MODREV, _SPECREV = '2.0.2', '-1'
 
 package = 'std.normalize'
 version = _MODREV .. _SPECREV
@@ -21,7 +21,7 @@ description = {
 
 -- LuaDist source
 source = {
-  tag = "2.0.1-1",
+  tag = "2.0.2-1",
   url = "git://github.com/LuaDist-testing/std.normalize.git"
 }
 -- Original source
@@ -45,3 +45,13 @@ build = {
       ['std.normalize.version']	   = 'lib/std/normalize/version.lua',
    },
 }
+
+if _MODREV == 'git' then
+   dependencies[#dependencies + 1] = 'ldoc'
+
+   source = {
+      url = 'git://github.com/lua-stdlib/normalize.git',
+   }
+
+   build.modules['std.functional.version'] = 'lib/std/normalize/version-git.lua'
+end

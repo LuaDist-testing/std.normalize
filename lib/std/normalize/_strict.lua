@@ -1,6 +1,6 @@
 --[[
  Normalized Lua API for Lua 5.1, 5.2 & 5.3
- Coryright (C) 2014-2017 Gary V. Vaughan
+ Copyright (C) 2014-2018 std.normalize authors
 ]]
 --[[--
  Depending on whether `std.strict` is installed, and the value of
@@ -10,11 +10,13 @@
  @module std.normalize._strict
 ]]
 
+local setfenv = rawget(_G, 'setfenv') or function() end
+
+
 local _ENV = {
    _debug = require 'std._debug',
    pcall = pcall,
    require = require,
-   setfenv = setfenv or function() end,
    setmetatable = setmetatable,
 }
 setfenv(1, _ENV)
@@ -68,7 +70,8 @@ return setmetatable({
    -- @treturn table *env*, which must be assigned to `_ENV`
    -- @usage
    --    local _ENV = require 'std.normalize._strict' {}
-   __call = function(_, env, level)
+   __call = function(self, env, level)
+      env = self.strict(env)
       setfenv(1+(level or 1), env)
       return env
    end,

@@ -1,5 +1,17 @@
 # std.normalize NEWS - User visible changes
 
+## Noteworthy changes in release 2.0.2 (2018-03-17) [stable]
+
+### Bug fixes
+
+  - Passing a table to the return value of `require 'std.normalize'`
+    really does diagnose attempts to access undeclared variables when
+    std.strict is found in the package.path now.
+
+  - Don't trigger undeclared variable accesses during loading, when
+    used in conjunction with other strict modules.
+
+
 ## Noteworthy changes in release 2.0.1 (2017-11-26) [stable]
 
 ### Bug fixes
@@ -18,7 +30,7 @@
     assert(type(CONST) == 'string')
     ```
 
-    Previously, `NULL` would not have been looad, instead remaining as
+    Previously, `NULL` would not have been loaded, instead remaining as
     the constant string 'lyaml.functional.NULL'.
 
 

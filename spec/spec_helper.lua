@@ -1,9 +1,11 @@
 --[[
  Normalized Lua API for Lua 5.1, 5.2 & 5.3
- Copyright (C) 2014-2017 Gary V. Vaughan
+ Copyright (C) 2014-2018 std.normalize authors
 ]]
 local typecheck
 have_typecheck, typecheck = pcall(require, 'typecheck')
+
+have_std_strict = pcall(require, 'std.strict.init')
 
 local inprocess = require 'specl.inprocess'
 local hell = require 'specl.shell'

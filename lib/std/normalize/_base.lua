@@ -1,6 +1,6 @@
 --[[
  Normalized Lua API for Lua 5.1, 5.2 & 5.3
- Coryright (C) 2014-2017 Gary V. Vaughan
+ Coryright (C) 2014-2018 std.normalize authors
 ]]
 --[[--
  Purely to break internal dependency cycles without introducing
@@ -13,10 +13,10 @@
 local _ENV = require 'std.normalize._strict' {
    floor = math.floor,
    getmetatable = getmetatable,
-   pack = table.pack,
+   pack = table.pack or false,
    select = select,
    setmetatable = setmetatable,
-   tointeger = math.tointeger,
+   tointeger = math.tointeger or false,
    tonumber = tonumber,
    tostring = tostring,
    type = type,
@@ -48,12 +48,12 @@ local pack_mt = {
 
 
 local pack = pack or function(...)
-   return { n = select('#', ...), ...}
+   return {n=select('#', ...), ...}
 end
 
 
 local tointeger = (function(f)
-   if f == nil then
+   if not f then
       -- No host tointeger implementation, use our own.
       return function(x)
         if type(x) == 'number' and x - floor(x) == 0.0 then
