@@ -3,6 +3,58 @@
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
 
+## Noteworthy changes in release 2.0 (2017-10-16) [stable]
+
+### New features
+
+  - New `string.render` exposes the low-level implementation of `str`.
+
+  - New `table.keys` fetches a list of keys in a given table.
+
+  - New `table.merge` performs destructive merging of table content.
+
+### Bug fixes
+
+  - Include `_G` table, pointing to the complete normalized table
+    of loaded modules, in the default user environment.  So this
+    will work now:
+
+    ```lua
+    local _ENV = require 'std.normalize' {}
+    for i = 1, len(_G.arg) do
+       print(i .. ': ' .. _G.arg[i])
+    end
+    ```
+
+### Incompatible changes
+
+  - Strict mode and argument checking are no longer controlled by the
+    global _DEBUG setting, but rather by the new `std._debug` module.
+    For example, to turn off all runtime debug facilities, insteod of
+    setting `_DEBUG = false` before loading this module, you should use:
+
+    ```lua
+    local _debug = require 'std._debug'(false)
+    ```
+
+  - Removed ugly `opairs` implementation, with it's own fixed ordering.
+    If you still need it, you can use something like this:
+
+    ```lua
+    keylist = table.keys(t)
+    sort(keylist, function(a, b)
+       if type(a) == 'number' then
+          return type(b) ~= 'number' or a < b
+       else
+          return type(b) ~= 'number' and tostring(a) < tostring(b)
+       end
+    end)
+    for _, k in ipairs(keylist) do
+       process(k, t[k])
+    end
+    ```
+
+
 ## Noteworthy changes in release 1.0.4 (2017-09-11) [stable]
 
 ### New features

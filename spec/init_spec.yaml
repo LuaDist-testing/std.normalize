@@ -29,18 +29,24 @@ specify std.normalize:
 
   - it loads core functions:
       script = [[
+         local sort = table.sort
          local _ENV = require 'std.normalize' {}
-          for k in opairs(_ENV) do
-             print(k)
-          end
+         local keylist = {}
+         for k in next, _ENV do
+            keylist[#keylist + 1] = k
+         end
+         sort(keylist)
+         for _, k in ipairs(keylist) do
+            print(k)
+         end
       ]]
       expect(luaproc(script)).to_output(table.concat({
-         '_VERSION', 'arg', 'argerror', 'assert', 'collectgarbage',
+         '_G', '_VERSION', 'arg', 'argerror', 'assert', 'collectgarbage',
          'dofile', 'error', 'getfenv', 'getmetamethod', 'getmetatable',
-         'ipairs', 'len', 'load', 'loadfile', 'next', 'opairs', 'pack',
-         'pairs', 'pcall', 'print', 'rawequal', 'rawget', 'rawlen',
-         'rawset', 'require', 'select', 'setfenv', 'setmetatable', 'str',
-         'tonumber', 'tostring', 'type', 'unpack', 'xpcall',
+         'ipairs', 'len', 'load', 'loadfile', 'next', 'pack', 'pairs',
+         'pcall', 'print', 'rawequal', 'rawget', 'rawlen', 'rawset',
+         'require', 'select', 'setfenv', 'setmetatable', 'str', 'tonumber',
+         'tostring', 'type', 'unpack', 'xpcall',
       }, '\n') .. '\n')
   - it diagnoses missed symbol dereferences in right-to-left order:
       expect(luaproc [[
@@ -191,10 +197,10 @@ specify std.normalize:
       expect(f('another', 3, 'oh noes')).
          to_raise "bad argument #3 to 'another' (oh noes)"
 
-  - context global _DEBUG is nil:
+  - context when std._debug is not set:
     - before: |
         shamble = [[
-           _DEBUG = nil					-- line 1
+           local _debug = nil				-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -212,10 +218,10 @@ specify std.normalize:
            caller(0)					-- line 14
         ]])).to_fail_while_matching '^[^:]+: bad argument'
 
-  - context global _DEBUG is false:
+  - context when std._debug is false:
     - before: |
         shamble = [[
-           _DEBUG = false				-- line 1
+           local _debug = require 'std._debug' (false)	-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -233,10 +239,10 @@ specify std.normalize:
            caller(0)					-- line 14
         ]])).to_fail_while_matching '^[^:]+: bad argument'
 
-  - context global _DEBUG is true:
+  - context when std._debug is true:
     - before: |
         shamble = [[
-           _DEBUG = true					-- line 1
+           local _debug = require 'std._debug' (true)	-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -254,10 +260,10 @@ specify std.normalize:
            caller(0)					-- line 14
         ]])).to_fail_while_matching '^[^:]+: bad argument'
 
-  - context global _DEBUG.argcheck is nil:
+  - context when std._debug.argcheck is nil:
     - before: |
         shamble = [[
-           _DEBUG = { argcheck = nil }			-- line 1
+           require 'std._debug'.argcheck = nil		-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -275,10 +281,10 @@ specify std.normalize:
            caller(0)					-- line 14
         ]])).to_fail_while_matching '^[^:]+: bad argument'
 
-  - context global _DEBUG.argcheck is false:
+  - context when std._debug.argcheck is false:
     - before: |
         shamble = [[
-           _DEBUG = { argcheck = false }		-- line 1
+           require 'std._debug'.argcheck = false	-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -296,10 +302,10 @@ specify std.normalize:
            caller(0)					-- line 14
         ]])).to_fail_while_matching '^[^:]+: bad argument'
 
-  - context global _DEBUG.argcheck is true:
+  - context when std._debug.argcheck is true:
     - before: |
         shamble = [[
-           _DEBUG = { argcheck = true }			-- line 1
+           require 'std._debug'.argcheck = true		-- line 1
         ]] .. preamble
     - it blames the call site by default: |
         expect(luaproc(shamble .. [[
@@ -335,7 +341,7 @@ specify std.normalize:
       expect(type(f(0))).to_be 'table'
       expect(type(f(f))).to_be 'table'
 
-  - context when _DEBUG.argcheck is true:
+  - context when std._debug.argcheck is true:
     - before:
         fn = function(n) return getfenv(n), nil end
         fnenv = {getfenv = f}
@@ -361,10 +367,10 @@ specify std.normalize:
     - it returns the environment of higher stack frames:
         expect(gn(2)).to_be(gnenv)
 
-  - context when _DEBUG.argcheck is false:
+  - context when std._debug.argcheck is false:
     - before:
         preamble = [[
-           _DEBUG = { argcheck = false }
+           require 'std._debug'.argcheck = false
            M = require 'std.normalize'
            f = M.getfenv
            fn = function(n) return getfenv(n), nil end
@@ -648,55 +654,6 @@ specify std.normalize:
         expect(f(1.0000000000000002)).to_be 'float'
 
 
-- describe opairs:
-  - before:
-      __index = function(t, k)
-         if type(k) == 'number' and k < 10 then return 1 end
-      end
-      __pairs = function(t)
-         return next, {'a', [5]='proxy', 'table'; foo=3, bar=1, baz=2, qux=4}
-      end
-      src = {'foo', bar='baz', [5] = 'quux', 42}
-      t = {}
-
-      f = M.opairs
-
-  - context with bad arguments:
-    - 'it diagnoses missing argument #1':
-         expect(f()).to_raise 'table expected'
-    - 'it diagnoses nil-valued argument #1':
-         expect(f(nil)).to_raise 'table expected'
-    - 'it diagnoses argument #1 type not table':
-         expect(f(false)).to_raise 'table expected'
-
-  - it works for an empty list:
-      for i, v in f {} do t[i] = v end
-      expect(t).to_equal {}
-  - it is an iterator over all table values:
-      for k, v in f(src) do t[k] = v end
-      expect(t).to_equal(src)
-  - it returns numeric keys in order:
-      for k in f(src) do table.insert(t, k) end
-      expect(t).to_equal {1, 2, 5, 'bar'}
-  - it returns non-numeric keys in asciibetical order:
-      for k in f {foo=1, bar=2, baz=3, quux=4} do table.insert(t, k) end
-      expect(t).to_equal {'bar', 'baz', 'foo', 'quux'}
-  - it respects __pairs metamethod:
-      for k, v in f(setmetatable(src, {__pairs = __pairs})) do t[k] = v end
-      expect(t).
-         to_equal {'a', [5]='proxy', 'table', foo=3, bar=1, baz=2, qux=4}
-  - it returns __pairs numeric keys in order:
-      for k in f(setmetatable(src, {__pairs = __pairs})) do
-         if type(k) == 'number' then table.insert(t, k) end
-      end
-      expect(t).to_equal {1, 2, 5}
-  - it returns __pairs non-numeric keys in asciibetical order:
-      for k in f(setmetatable(src, {__pairs = __pairs})) do
-         if type(k) ~= 'number' then table.insert(t, k) end
-      end
-      expect(t).to_equal {'bar', 'baz', 'foo', 'qux'}
-
-
 - describe os:
   - describe exit:
     - before:
@@ -928,7 +885,7 @@ specify std.normalize:
       expect(fn {}).to_be(fn)
       expect(f(fn, {})).to_be(fn)
 
-  - context when _DEBUG.argcheck is true:
+  - context when std._debug.argcheck is true:
     - before:
         fn = function(env) return f(1, env), nil end
         fnenv = {f = f}
@@ -956,10 +913,10 @@ specify std.normalize:
         expect(gn(1, fnenv)).to_be(fn)
         expect(gn(2, {fn = fn})).to_be(gn)
 
-  - context when _DEBUG.argcheck is false:
+  - context when std._debug.argcheck is false:
     - before:
         preamble = [[
-           _DEBUG = { argcheck = false }
+           require 'std._debug'.argcheck = false
            M = require 'std.normalize'
            f = M.setfenv
            fn = function(env) return f(1, env), nil end
@@ -1031,6 +988,78 @@ specify std.normalize:
   - it renders keys with invalid symbol names compactly:
       expect(f {_=0, word=0, ['?']=1, ['a-key']=1, ['[]']=1 }).
          to_be '{?=1, []=1, _=0, a-key=1, word=0}'
+
+
+- describe string:
+  - describe render:
+    - before: |
+        arrayvfns = {
+           elem = tostring,
+           term = function(x) return type(x) ~= 'table' end,
+           sort = function(keys)
+              local r = {}
+              for i = 1, #keys do
+                 if type(keys[i]) == 'number' then r[#r + 1] = keys[i] end
+              end
+              return r
+           end,
+           open = function(_) return '[' end,
+           close = function(_) return ']' end,
+           pair = function(x, kp, vp, k, v, kstr, vstr, seqp)
+              return seqp and vstr or ''
+           end,
+           sep = function(x, kp, vp, kn, vn, seqp)
+              return seqp and kp ~= nil and kn ~= nil and ', ' or ''
+           end,
+        }
+        f = function(x)
+           return M.string.render(x, arrayvfns)
+        end
+
+    - it renders array elements in order:
+        expect(f{'a', 'b', [4]='d', 'c'}).to_be '[a, b, c, d]'
+    - it ignores non-array pairs:
+        expect(f{'a', 'b', [4]='d', 'c', foo='bar', baz='qux'}).
+           to_be '[a, b, c, d]'
+    - it recurses to nested tables:
+        expect(f{'a', {'b', 'c'}, {{'d'}}}).to_be '[a, [b, c], [[d]]]'
+    - it detects and breaks cycles:
+        a = {1, 2, 3}
+        a[4] = a
+        expect(f(a)).to_match '^%[1, 2, 3, table:.*%]$'
+
+- describe table:
+  - describe keys:
+    - before:
+        f = M.table.keys
+        t = {1, 2, 5, foo='bar'}
+
+    - context with bad arguments:
+        badargs.diagnose(f, 'table.keys(table)')
+
+    - it collects all keys from a table:
+        expect(f(t)).to_contain.all_of{1, 2, 3, 'foo'}
+
+
+  - describe merge:
+    - before:
+        f = M.table.merge
+        t = {1, 2, 5, foo='bar'}
+
+    - context with bad argumentns:
+        badargs.diagnose(f, 'table.merge(table, ?table)')
+
+    - it makes a shallow copy with one argument:
+        expect(f(t)).to_equal(t)
+    - it returns the second argument:
+        u = {}
+        expect(f(t, u)).to_be(u)
+    - it does not overwrite existing values:
+        u = f(t)
+        expect(f({'a', 'b', 'c', foo='baz'}, u)).to_equal(t)
+    - it does merge unique fields:
+        expect(f(t, {'a', 'b', bar='baz', [5]=42}))
+           .to_equal{'a', 'b', 5, [5]=42, foo='bar', bar='baz'}
 
 
 - describe unpack:

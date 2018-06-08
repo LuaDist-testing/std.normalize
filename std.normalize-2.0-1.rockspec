@@ -1,6 +1,6 @@
 -- This file was automatically generated for the LuaDist project.
 
-local _MODREV, _SPECREV = '1.0.4', '-1'
+local _MODREV, _SPECREV = '2.0', '-1'
 
 package = 'std.normalize'
 version = _MODREV .. _SPECREV
@@ -21,7 +21,7 @@ description = {
 
 -- LuaDist source
 source = {
-  tag = "1.0.4-1",
+  tag = "2.0-1",
   url = "git://github.com/LuaDist-testing/std.normalize.git"
 }
 -- Original source
@@ -32,6 +32,7 @@ source = {
 
 dependencies = {
    'lua >= 5.1, < 5.4',
+   'std._debug',
 }
 
 build = {
@@ -39,7 +40,6 @@ build = {
    modules = {
       ['std.normalize']	           = 'lib/std/normalize/init.lua',
       ['std.normalize._base']      = 'lib/std/normalize/_base.lua',
-      ['std.normalize._debug']     = 'lib/std/normalize/_debug.lua',
       ['std.normalize._strict']    = 'lib/std/normalize/_strict.lua',
       ['std.normalize._typecheck'] = 'lib/std/normalize/_typecheck.lua',
       ['std.normalize.version']	   = 'lib/std/normalize/version.lua',

@@ -6,9 +6,9 @@
 --[[--
  Normalize API differences between supported Lua implementations.
 
- Respecting the values set in the `std.debug_init` module and the
- `_G._DEBUG` variable, inject deterministic identically behaving
- cross-implementation low-level functions into the callers environment.
+ Respecting the values set in the `std._debug` settings module, inject
+ deterministic identically behaving cross-implementation low-level
+ functions into the callers environment.
 
  Writing Lua libraries that target several Lua implementations can be a
  frustrating exercise in working around lots of small differences in APIs
@@ -241,6 +241,15 @@ local function ipairs(l)
 end
 
 
+local function keys(t)
+   local r = {}
+   for k in pairs(t) do
+      r[#r + 1] = k
+   end
+   return r
+end
+
+
 if not pcall(load, '_=1') then
    local loadfunction = load
    load = function(...)
@@ -266,37 +275,21 @@ local function normalize_load(chunk, chunkname)
 end
 
 
+local function merge(t, r)
+   r = r or {}
+   for k, v in next, t do
+      r[k] = r[k] or v
+   end
+   return r
+end
+
+
 if not not pairs(setmetatable({},{__pairs=function() return false end})) then
    -- Add support for __pairs when missing.
    local _pairs = pairs
    function pairs(t)
       return(getmetamethod(t, '__pairs') or _pairs)(t)
    end
-end
-
-
-local function keysort(a, b)
-   if type(a) == 'number' then
-      return type(b) ~= 'number' or a < b
-   else
-      return type(b) ~= 'number' and tostring(a) < tostring(b)
-   end
-end
-
-
-local function opairs(t)
-   local keys, i = {}, 0
-   for k in pairs(t) do keys[#keys + 1] = k end
-   sort(keys, keysort)
-
-   local _, _t = pairs(t)
-   return function(t)
-      i = i + 1
-      local k = keys[i]
-      if k ~= nil then
-         return k, t[k]
-      end
-   end, _t, nil
 end
 
 
@@ -365,69 +358,106 @@ else
 end
 
 
-local function shallow_copy(t)
-   local r = {}
-   for k, v in next, t do
-      r[k] = v
+local shallow_copy = merge
+
+
+local function render(x, vfns, roots)
+   if vfns.term(x) then
+      return vfns.elem(x)
    end
-   return r
-end
 
-
-local escape = setmetatable({
-   ['\a'] = [[\a]],
-   ['\b'] = [[\b]],
-   ['\t'] = [[\t]],
-   ['\n'] = [[\n]],
-   ['\v'] = [[\v]],
-   ['\f'] = [[\f]],
-   ['\r'] = [[\r]],
-   ['\\'] = [[\\]],
-}, {
-   __call = function(map, x)
-      return gsub(tostring(x), '[\a\b\t\n\v\f\r]', function(c)
-         return map[c]
-      end)
-   end,
-})
-
-
-local function str(x, roots)
    roots = roots or {}
 
    local function stop_roots(x)
-      return roots[x] or str(x, shallow_copy(roots))
+      return roots[x] or render(x, vfns, shallow_copy(roots))
    end
 
-   if type(x) ~= 'table' or getmetamethod(x, '__tostring') then
-      return escape(x)
+   local buf, pair, sep = {vfns.open(x)}, vfns.pair, vfns.sep
+   roots[x] = vfns.elem(x) -- recursion protection
 
-   else
-      local buf = {'{'} -- pre-buffer table open
-      roots[x] = tostring(x) -- recursion protection
-
-      local seqp, kp, vp -- proper sequence?, previous key and value
-      for k, v in opairs(x) do
-         if k == 1 then
-            seqp = true
-         end
-         if kp ~= nil and k ~= nil then
-            -- semi-colon separator after sequence values, or else comma separator
-            buf[#buf + 1] = seqp and type(kp) == 'number' and k ~= kp + 1 and '; ' or ', '
-            seqp = seqp and type(kp) == 'number' and k == kp + 1
-         end
-         if seqp then
-            -- no key for sequence values
-            buf[#buf + 1] = stop_roots(v)
-         else
-            buf[#buf + 1] = stop_roots(k) .. '=' .. stop_roots(v)
-         end
-         kp, vp = k, v
+   local seqp, kp, vp -- proper sequence?, previous key and value
+   local keylist = vfns.sort(keys(x))
+   for i, k in ipairs(keylist) do
+      local v = x[k]
+      buf[#buf + 1] = sep(x, kp, vp, k, v, seqp) -- buffer << separator
+      if k == 1 then
+         seqp = true
+      else
+         seqp = seqp and type(kp) == 'number' and k == kp + 1
       end
-      buf[#buf + 1] = '}' -- buffer << table close
-
-      return concat(buf) -- stringify buffer
+      buf[#buf + 1] = pair(x, kp, vp, k, v, stop_roots(k), stop_roots(v), seqp)
+      kp, vp = k, v
    end
+   buf[#buf + 1] = sep(x, kp, vp) -- buffer << trailing separator
+   buf[#buf + 1] = vfns.close(x) -- buffer << table close
+   return concat(buf) -- stringify buffer
+end
+
+
+local function always(x)
+   return function(...) return x end
+end
+
+
+local function keysort(a, b)
+   if type(a) == 'number' then
+      return type(b) ~= 'number' or a < b
+   else
+      return type(b) ~= 'number' and tostring(a) < tostring(b)
+   end
+end
+
+
+local strvtable = {
+   open = always '{',
+   close = always '}',
+
+   elem = setmetatable({
+      ['\a'] = [[\a]],
+      ['\b'] = [[\b]],
+      ['\t'] = [[\t]],
+      ['\n'] = [[\n]],
+      ['\v'] = [[\v]],
+      ['\f'] = [[\f]],
+      ['\r'] = [[\r]],
+      ['\\'] = [[\\]],
+   }, {
+      __call = function(map, x)
+         return gsub(tostring(x), '[\a\b\t\n\v\f\r]', function(c)
+            return map[c]
+         end)
+      end,
+   }),
+
+   pair = function(x, kp, vp, k, v, kstr, vstr, seqp)
+      if seqp then
+         return vstr
+      end
+      return kstr .. '=' .. vstr
+   end,
+
+   sep = function(x, kp, vp, k, v, seqp)
+      if kp == nil or k == nil then
+         return ''
+      elseif seqp and type(kp) == 'number' and k ~= kp + 1 then
+         return '; '
+      end
+      return ', '
+   end,
+
+   sort = function(keys)
+      sort(keys, keysort)
+      return keys
+   end,
+
+   term = function(x)
+      return type(x) ~= 'table' or getmetamethod(x, '__tostring')
+   end,
+}
+
+
+local function str(x)
+   return render(x, strvtable)
 end
 
 
@@ -582,22 +612,6 @@ local F = {
 
    loadfile = _G.loadfile,
    next = _G.next,
-
-   --- Ordered `pairs` iterator, respecting `__pairs` metamethod.
-   --
-   -- Although `__pairs` will be used to collect results, `opairs`
-   -- always returns them in the same order as `str`.
-   -- @function opairs
-   -- @tparam table t table to act on
-   -- @treturn function iterator function
-   -- @treturn table *t*, the table being iterated over
-   -- @return the previous iteration key
-   -- @usage
-   --    --> 1           b
-   --    --> 2           a
-   --    --> foo         c
-   --    for k, v in opairs {'b', foo='c', 'a'} do print(k, v) end
-   opairs = argscheck('opairs', T.table) .. opairs,
 
    --- Return a list of given arguments, with field `n` set to the length.
    --
@@ -859,6 +873,19 @@ local G = {
       lower = _G.string.lower,
       match = _G.string.match,
       rep = _G.string.rep,
+
+      --- Low-level recursive data to string rendering.
+      -- @function string.render
+      -- @param x data to be renedered
+      -- @tparam RenderFns vfns table of virtual functions to control rendering
+      -- @tparam[opt] table roots used internally for cycle detection
+      -- @treturn string a text recursive rendering of *x* using *vfns*
+      -- @usage
+      --    function printarray(x)
+      --       return render(x, arrayvfns)
+      --    end
+      render = argscheck('render', T.accept, T.table, opt(T.table)) .. render,
+
       reverse = _G.string.reverse,
       sub = _G.string.sub,
       upper = _G.string.upper,
@@ -866,11 +893,31 @@ local G = {
    table = {
       concat = _G.table.concat,
       insert = _G.table.insert,
+
+      --- Return an unordered list of all keys in a table.
+      -- @function table.keys
+      -- @tparam table t table to operate on
+      -- @treturn table an unorderd list of keys in *t*
+      -- @usage
+      --    --> {'key2', 1, 42, 2, 'key1'}
+      --    keys{'a', 'b', key1=1, key2=2, [42]=3}
+      keys = argscheck('keys', T.table) .. keys,
+
+      --- Destructively merge keys and values from one table into another.
+      -- @function table.merge
+      -- @tparam table t take fields from this table
+      -- @tparam[opt={}] table u and copy them into here, unless they are set already
+      -- @treturn table *u*
+      -- @usage
+      --    --> {'a', 'b', d='d'}
+      --    merge({'a', 'b'}, {'c', d='d'})
+      merge = argscheck('merge', T.table, opt(T.table)) .. merge,
+
       remove = _G.table.remove,
       sort = _G.table.sort,
    },
 }
-G._G = G
+F._G = G
 G.package.loaded = {
    _G = G,
    coroutine = G.coroutine,
@@ -1073,3 +1120,95 @@ return setmetatable(G, {
       end
    end,
 })
+
+
+--- Types
+-- @section types
+
+--- Table of functions for string.render.
+-- @table RenderFns
+-- @tfield RenderElem elem return unique string representation of an element
+-- @tfield RenderTerm term return true for elements that should not be
+--    recursed
+-- @tfield RenderSort sort return list of keys in order to be rendered
+-- @tfield RenderOpen open return a string for before first element of a table
+-- @tfield RenderClose close return a string for after last element of a table
+-- @tfield RenderPair pair return a string rendering of a key value pair
+--    element
+-- @tfield RenderSep sep return a string to render between elements
+-- @see string.render
+-- @usage
+--     arrayvfns = {
+--       elem = tostring,
+--       term = function(x)
+--          return type(x) ~= 'table' or getmetamethod(x, '__tostring')
+--       end,
+--       sort = function(keys)
+--          local r = {}
+--          for i = 1, #keys do
+--             if type(keys[i]) == 'number' then r[#r + 1] = keys[i] end
+--          end
+--          return r
+--       end,
+--       open = function(_) return '[' end,
+--       close = function(_) return ']' end,
+--       pair = function(x, kp, vp, k, v, kstr, vstr, seqp)
+--          return seqp and vstr or ''
+--       end,
+--       sep = function(x, kp, vp, kn, vn, seqp)
+--          return seqp and kp ~= nil and kn ~= nil and ', ' or ''
+--       end,
+--     )
+
+--- Type of function for uniquely stringifying rendered element.
+-- @function RenderElem
+-- @param x element to operate on
+-- @treturn string stringified *x*
+
+--- Type of predicate function for terminal elements.
+-- @function RenderTerm
+-- @param x element to operate on
+-- @treturn bool true for terminal elements that should be rendered
+--    immediately
+
+--- Type of function for sorting keys of a recursively rendered element.
+-- @function RenderSort
+-- @tparam table keys list of table keys, it's okay to mutate and return
+--    this parameter
+-- @treturn table sorted list of keys for pairs to be rendered
+
+--- Type of function to get string for before first element.
+-- @function RenderOpen
+-- @param x element to operate on
+-- @treturn string string to render before first element
+
+--- Type of function te get string for after last element.
+-- @function RenderClose
+-- @param x element to operate on
+-- @treturn string string to render after last element
+
+--- Type of function to render a key value pair.
+-- @function RenderPair
+-- @param x complete table elmeent being operated on
+-- @param kp unstringified previous pair key
+-- @param vp unstringified previous pair value
+-- @param k unstringified pair key to render
+-- @param v unstringified pair value to render
+-- @param kstr already stringified pair key to render
+-- @param vstr already stringified pair value to render
+-- @param seqp true if all keys so far have been a contiguous range of
+--    integers
+-- @treturn string stringified rendering of pair *kstr* and *vstr*
+
+--- Type of function to render a separator between pairs.
+-- @function RenderSep
+-- @param x complet table element being operated on
+-- @param kp unstringified previous pair key
+-- @param vp unstringified previous pair value
+-- @param kn unstringified next pair key
+-- @param vn unstringified next pair value
+-- @param seqp true if all keys so far have been a contiguous range of
+--    integers
+-- @treturn string stringified rendering of separator between previous and
+--    next pairs
+

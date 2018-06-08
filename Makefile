@@ -4,12 +4,11 @@ MKDIR	= mkdir -p
 SED	= sed
 SPECL	= specl
 
-VERSION	= 1.0.4
+VERSION	= 2.0
 
 luadir	= lib/std/normalize
 SOURCES =				\
 	$(luadir)/_base.lua		\
-	$(luadir)/_debug.lua		\
 	$(luadir)/_strict.lua		\
 	$(luadir)/_typecheck.lua	\
 	$(luadir)/init.lua		\
