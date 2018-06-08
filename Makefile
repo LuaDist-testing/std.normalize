@@ -4,7 +4,7 @@ MKDIR	= mkdir -p
 SED	= sed
 SPECL	= specl
 
-VERSION	= 1.0.3
+VERSION	= 1.0.4
 
 luadir	= lib/std/normalize
 SOURCES =				\
