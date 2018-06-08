@@ -1,4 +1,6 @@
+*~
 .DS_Store
-/*.rock
-/doc/config.ld
+/*.src.rock
+/build-aux/config.ld
 /luacov.*.out
+/normalize-*.tar.gz

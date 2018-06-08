@@ -1,5 +1,44 @@
 # std.normalize NEWS - User visible changes
 
+## Noteworthy changes in release ?.? (????-??-??) [?]
+
+
+
+## Noteworthy changes in release 1.0.2 (2017-07-07) [stable]
+
+### New features
+
+  - `pack` sets a `__len` metamethod on its result so that `len` returns
+    the actual number of arguments packed (including `nil`s).
+
+  - `unpack`ing a `pack`ed sequence returns the original sequence without
+    requiring an explicit `to_index` argument, even if the original
+    sequence contains `nil`s:
+
+    ```lua
+    a, b, c = unpack(pack(1, nil, 3))
+    assert(a == 1 and b == nil and c == 3, "require 'std.normalize' first!")
+    ```
+
+  - `str` uses C-like escape sequences \a, \b, \t, \n, \v, \f, \r and \\
+    to render the associated bytes.
+
+### Bug fixes
+
+  - `getmetamethod` no longer raises an argerror for nil-valued
+    initial argument.
+
+  - `ipairs` and `opairs` now diagnose all non-table valued arguments
+     correctly.
+
+  - `str` now only skips consecutive integer keys in proper sequences.
+
+### Incompatible changes
+
+  - `ipairs` now respects the `__len` metamethod, such as the one set by
+    `pack`.
+
+
 ## Noteworthy changes in release 1.0.1 (2016-05-28) [stable]
 
 ### Bug fixes
@@ -22,10 +61,10 @@
     back to `_ENV`:
 
     ```lua
-      local _ENV = require "std.normalize" {
-        "package",
-        "std.prototype",
-        strict = "std.strict",
+      local _ENV = require 'std.normalize' {
+        'package',
+        'std.prototype',
+        strict = 'std.strict',
       }
     ```
 
@@ -51,8 +90,8 @@
 
   - New `os.exit` wrapper accepts a boolean argument, even in Lua 5.1;
     but is slightly slower than the host Lua implementation in order to
-    diagnose explicit `nil` or floating-point arguments (`os.exit ()` is
-    still equivalent to `os.exit (true)`).
+    diagnose explicit `nil` or floating-point arguments (`os.exit()` is
+    still equivalent to `os.exit(true)`).
 
   - `package.searchpath` is available everywhere.
 
@@ -64,7 +103,7 @@
 
 ### Bug fixes
 
-  - `getfenv (0)` now returns the global environment correctly in
+  - `getfenv(0)` now returns the global environment correctly in
     Lua 5.2+.
 
   - `getmetamethod` now handles functor metatable fields correctly,

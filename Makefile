@@ -4,7 +4,7 @@ MKDIR	= mkdir -p
 SED	= sed
 SPECL	= specl
 
-VERSION	= 1.0.1
+VERSION	= 1.0.2
 
 luadir	= lib/std/normalize
 SOURCES =				\
@@ -17,7 +17,7 @@ SOURCES =				\
 	$(NOTHING_ELSE)
 
 
-all: doc $(luadir)/version.lua
+all:
 
 
 $(luadir)/version.lua: .FORCE
@@ -29,10 +29,10 @@ $(luadir)/version.lua: .FORCE
 	    mv '$@T' '$@';							\
 	fi
 
-doc: doc/config.ld $(SOURCES)
-	$(LDOC) -c doc/config.ld .
+doc: build-aux/config.ld $(SOURCES)
+	$(LDOC) -c build-aux/config.ld .
 
-doc/config.ld: doc/config.ld.in
+build-aux/config.ld: build-aux/config.ld.in
 	$(SED) -e "s,@PACKAGE_VERSION@,$(VERSION)," '$<' > '$@'
 
 

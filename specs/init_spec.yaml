@@ -1,3 +1,6 @@
+# Normalized Lua API for Lua 5.1, 5.2 & 5.3
+# Copyright (C) 2014-2017 Gary V. Vaughan
+
 before:
   this_module   = "std.normalize"
 
@@ -352,6 +355,7 @@ specify std.normalize:
   - context with bad arguments:
     - 'it diagnoses missing argument #1':
          expect (f ()).to_raise "value expected"
+         expect (f (nil)).not_to_raise "value expected"
     - 'it diagnoses missing argument #2':
          expect (f ({})).to_raise "string expected, got no value"
     - 'it diagnoses argument #2 type not string':
@@ -392,7 +396,7 @@ specify std.normalize:
           if i < 5 then return i + 1, x[i] end
         end, {"an", "unused", "proxy", "table"}, 0
       end
-      __len = function (t) return 2 end
+      __len = function (t) return 5 end
       src = {"foo", "bar", 5, 42}
       t = {}
 
@@ -400,11 +404,11 @@ specify std.normalize:
 
   - context with bad arguments:
     - 'it diagnoses missing argument #1':
-         expect (f ()).to_raise "value expected"
+         expect (f ()).to_raise "table expected, got no value"
     - 'it diagnoses nil-valued argument #1':
-         expect (f (nil)).to_raise "value expected"
+         expect (f (nil)).to_raise "table expected, got nil"
     - 'it diagnoses argument #1 type not table':
-         expect (f (false)).to_raise "value expected"
+         expect (f (false)).to_raise "table expected, got boolean"
 
   - it works for an empty list:
       for i, v in f {} do t[i] = v end
@@ -425,13 +429,15 @@ specify std.normalize:
         t[i] = v
       end
       expect (t).to_equal {"abc", "b", "c", "d"}
+  - it respects __len metamethod:
+      for i, v in f (setmetatable (src, {__len = __len})) do
+        t.n, t[i] = i, v
+      end
+      expect (t).to_equal {"foo", "bar", 5, 42; n = 5}
   - it ignores __ipairs metamethod:
       for i, v in f (setmetatable (src, {__ipairs = __ipairs})) do
         t[i] = v
       end
-      expect (t).to_equal (src)
-  - it ignores __len metamethod:
-      for k, v in f (setmetatable (src, {__len = __len})) do t[k] = v end
       expect (t).to_equal (src)
 
 
@@ -598,11 +604,11 @@ specify std.normalize:
 
   - context with bad arguments:
     - 'it diagnoses missing argument #1':
-         expect (f ()).to_raise "value expected"
+         expect (f ()).to_raise "table expected"
     - 'it diagnoses nil-valued argument #1':
-         expect (f (nil)).to_raise "value expected"
+         expect (f (nil)).to_raise "table expected"
     - 'it diagnoses argument #1 type not table':
-         expect (f (false)).to_raise "value expected"
+         expect (f (false)).to_raise "table expected"
 
   - it works for an empty list:
       for i, v in f {} do t[i] = v end
@@ -670,7 +676,14 @@ specify std.normalize:
       expect (f ().n).not_to_be (nil)
       expect (f (1, 2, 3).n).to_be (3)
   - it packs arguments into the returned table:
-      expect (f (1, 2, 3)).to_equal {1, 2, 3; n = 3}
+      expect (f (1, 2, 3)).to_equal {1, 2, 3; n=3}
+  - it packs nil arguments correctly:
+      expect (f (nil, 2, nil, nil)).to_equal {[2]=2; n=4}
+  - it responds to len:
+      expect (M.len (f ())).to_be (0)
+      expect (M.len (f (nil))).to_be (1)
+      expect (M.len (f (1, 2, 3))).to_be (3)
+      expect (M.len (f (nil, 2, nil, nil))).to_be (4)
 
 
 - describe package:
@@ -937,6 +950,8 @@ specify std.normalize:
       expect (f (42)).to_be (tostring (42))
       expect (f (f)).to_be (tostring (f))
       expect (f "a string").to_be "a string"
+  - it renders whitespace characters in strings with C-like escape sequences:
+      expect (f '\a\b\t\n\v\f\r\\').to_be [[\a\b\t\n\v\f\r\]]
   - it renders empty tables as a pair of braces:
       expect (f {}).to_be ("{}")
   - it renders table array part compactly:
@@ -948,6 +963,9 @@ specify std.normalize:
   - it renders array elements before dictionary elements:
       expect (f {7, six="five", 4, 3, one=2}).
         to_be '{7, 4, 3; one=2, six=five}'
+  - it renders non-sequences with keys:
+      expect (f {[2] = true, one = 1, [3] = {3}}).
+        to_be '{2=true, 3={3}, one=1}'
   - it renders table keys in table.sort order:
       expect (f { one = 3, two = 5, three = 4, four = 2, five = 1 }).
         to_be '{five=1, four=2, one=3, three=4, two=5}'
@@ -958,8 +976,9 @@ specify std.normalize:
 
 - describe unpack:
   - before:
+      q = setmetatable ({1, 2, 5}, {__len = function () return 5 end})
       t = {1, 2, 5}
-      u = {1, 2, 5, n=3}
+      u = {1, 2, 5; n=3}
       f = function (...) return pack (M.unpack (...)) end
 
   - context with bad arguments:
@@ -995,34 +1014,41 @@ specify std.normalize:
       expect (f {1, 2, 5, nil, 3}).to_equal (u)
       expect (f {nil, 1, nil, 2}).to_equal {n=0}
   - it ignores non-sequence elements:
-      expect (f {1, 2, 5, n=2}).to_equal (u)
+      expect (f {1, 2, 5; n=2}).to_equal (u)
       expect (f {1, foo='bar', 2, baz={4}, 5}).to_equal (u)
   - it respects optional `from_index` argument:
       expect (f (t, 1)).to_equal (u)
-      expect (f (t, 2)).to_equal {2, 5, n=2}
-      expect (f (t, 3)).to_equal {5, n=1}
+      expect (f (t, 2)).to_equal {2, 5; n=2}
+      expect (f (t, 3)).to_equal {5; n=1}
       expect (f (t, 4)).to_equal {n=0}
       expect (f (t, 42)).to_equal {n=0}
   - it stops before first `nil` even if `from_index` is larger:
       expect (f ({[42]=1}, 42)).to_equal {n=0}
   - it returns initial `nils` when `from_index` is smaller than 1:
-      expect (f ({1, 2, 5}, 0)).to_equal {nil, 1, 2, 5, n=4}
-      expect (f ({1, 2, 5}, -1)).to_equal {nil, nil, 1, 2, 5, n=5}
+      expect (f (t, 0)).to_equal {nil, 1, 2, 5; n=4}
+      expect (f (t, -1)).to_equal {nil, nil, 1, 2, 5; n=5}
+  - it respects `__len` metamethod:
+      expect (f (q)).to_equal {1, 2, 5; n=5}
   - it respects optional `to_index` argument:
-      expect (f ({1, 2, 5}, nil, 3)).to_equal (u)
-      expect (f ({1, 2, 5}, nil, 2)).to_equal {1, 2, n=2}
-      expect (f ({1, 2, 5}, nil, 1)).to_equal {1, n=1}
-      expect (f ({1, 2, 5}, nil, 0)).to_equal {n=0}
+      expect (f (t, nil, 3)).to_equal (u)
+      expect (f (t, nil, 2)).to_equal {1, 2; n=2}
+      expect (f (t, nil, 1)).to_equal {1; n=1}
+      expect (f (t, nil, 0)).to_equal {n=0}
+  - it respects optional `to_index` argument over `__len` metamethod:
+      expect (f (q, nil, 3)).to_equal (u)
+      expect (f (q, nil, 2)).to_equal {1, 2; n=2}
+      expect (f (q, nil, 1)).to_equal {1; n=1}
+      expect (f (q, nil, 0)).to_equal {n=0}
   - it returns additional `nils` when `to_index` is greater than sequence length:
-      expect (f ({1, 2, 5}, nil, 4)).to_equal {1, 2, 5, n=4}
-      expect (f ({1, 2, 5}, nil, 42)).to_equal {1, 2, 5, n=42}
+      expect (f (t, nil, 4)).to_equal {1, 2, 5; n=4}
+      expect (f (t, nil, 42)).to_equal {1, 2, 5; n=42}
   - it accepts `from_index` and `to_index` together:
       expect (f (t, 1, 3)).to_equal (u)
-      expect (f (t, 0, 4)).to_equal {nil, 1, 2, 5, n=5}
-      expect (f (t, 0, 2)).to_equal {nil, 1, 2, n=3}
-      expect (f (t, 1, 2)).to_equal {1, 2, n=2}
-      expect (f (t, 2, 3)).to_equal {2, 5, n=2}
-      expect (f (t, 2, 4)).to_equal {2, 5, n=3}
+      expect (f (t, 0, 4)).to_equal {nil, 1, 2, 5; n=5}
+      expect (f (t, 0, 2)).to_equal {nil, 1, 2; n=3}
+      expect (f (t, 1, 2)).to_equal {1, 2; n=2}
+      expect (f (t, 2, 3)).to_equal {2, 5; n=2}
+      expect (f (t, 2, 4)).to_equal {2, 5; n=3}
   - it returns nothing if `from_index` is larger than `to_index`:
       expect (f (t, 3, 1)).to_equal {n=0}
       expect (f (t, 1, -1)).to_equal {n=0}
@@ -1031,6 +1057,9 @@ specify std.normalize:
       expect (f (t, -1, -1)).to_equal {n=1}
       expect (f (t, -2, -1)).to_equal {n=2}
       expect (f (t, 100, 199)).to_equal {n=100}
+  - it is the inverse operation to `pack`:
+      expect (M.pack (M.unpack (M.pack (1, nil, 3, nil)))).
+        to_equal {1, nil, 3; n=4}
 
 
 - describe xpcall:
@@ -1082,22 +1111,8 @@ specify std.normalize:
       expect (ok).to_be (false)
       expect (r).to_contain ': fail abc'
   - it propagates nil arguments correctly:
-      fail = function (...) error (select ("#", ...)) end
+      fail = function (...) error (select ("#", ...), 0) end
       _, r = f (fail, tostring)
-      expect (r).to_match ' 0$'
+      expect (r).to_be '0'
       _, r = f (fail, tostring, nil, nil, nil)
-      expect (r).to_match ' 3$'
-
-
-- describe version:
-  - before:
-      x = M.version
-
-  - it returns a string:
-      expect (type (M.version)).to_be "string"
-  - it contains package description:
-      expect (string.match (M.version, "Normalized Lua Functions")).
-        not_to_be (nil)
-  - it ends with a semantic version number:
-      expect (string.match (M.version, "([%.%d]+)%D*$")).
-        not_to_be (nil)
+      expect (r).to_be '3'

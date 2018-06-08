@@ -1,3 +1,7 @@
+--[[
+ Normalized Lua API for Lua 5.1, 5.2 & 5.3
+ Copyright (C) 2014-2017 Gary V. Vaughan
+]]
 local typecheck
 have_typecheck, typecheck	= pcall (require, "typecheck")
 
@@ -18,6 +22,22 @@ local LUA = os.getenv "LUA" or "lua"
 -- Allow use of bare 'pack' and 'unpack' even in Lua 5.3.
 pack = table.pack or function (...) return {n = select ("#", ...), ...} end
 unpack = table.unpack or unpack
+
+
+local function getmetamethod (x, n)
+  local m = (getmetatable (x) or {})[tostring (n)]
+  if type (m) == "function" then
+    return m
+  end
+  if type ((getmetatable (m) or {}).__call) == "function" then
+    return m
+  end
+end
+
+
+function callable (x)
+  return type (x) == "function" or getmetamethod (x, "__call")
+end
 
 
 function copy (t)
