@@ -1,1 +1,1 @@
-return "Normalized Lua Functions / 1.0.2"
+return "Normalized Lua Functions / 1.0.3"

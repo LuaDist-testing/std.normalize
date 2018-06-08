@@ -3,6 +3,29 @@
 ## Noteworthy changes in release ?.? (????-??-??) [?]
 
 
+## Noteworthy changes in release 1.0.3 (2017-09-02) [stable]
+
+### New features
+
+  - `std.normalize` allows assignment of non-string values in its table
+    argument to propagate up to the assigned environment:
+
+    ```lua
+    local _ENV = require 'std.normalize' {
+       ceil = math.ceil,
+       argcheck = require 'typecheck'.argcheck,
+    }
+    ```
+
+### Incompatible changes
+
+  - `math.tointeger` returns `nil` for string type arguments now, for
+    deterministic behaviour whether or not LUA_NOCVTS2N is defined at
+    compile time.
+
+  - `getfenv`, consequently, now diagnoses a bad argument when passed an
+    integer-like string instead of an actual integer.
+
 
 ## Noteworthy changes in release 1.0.2 (2017-07-07) [stable]
 

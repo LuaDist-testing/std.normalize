@@ -4,7 +4,7 @@ MKDIR	= mkdir -p
 SED	= sed
 SPECL	= specl
 
-VERSION	= 1.0.2
+VERSION	= 1.0.3
 
 luadir	= lib/std/normalize
 SOURCES =				\
@@ -39,7 +39,7 @@ build-aux/config.ld: build-aux/config.ld.in
 CHECK_ENV = LUA=$(LUA)
 
 check: $(SOURCES)
-	LUA=$(LUA) $(SPECL) $(SPECL_OPTS) specs/*_spec.yaml
+	LUA=$(LUA) $(SPECL) $(SPECL_OPTS) spec/*_spec.yaml
 
 
 .FORCE:

@@ -1,6 +1,6 @@
 -- This file was automatically generated for the LuaDist project.
 
-local _MODREV, _SPECREV = '1.0.2', '-1'
+local _MODREV, _SPECREV = '1.0.3', '-1'
 
 package = 'std.normalize'
 version = _MODREV .. _SPECREV
@@ -21,7 +21,7 @@ description = {
 
 -- LuaDist source
 source = {
-  tag = "1.0.2-1",
+  tag = "1.0.3-1",
   url = "git://github.com/LuaDist-testing/std.normalize.git"
 }
 -- Original source
