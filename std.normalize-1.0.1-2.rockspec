@@ -1,3 +1,5 @@
+-- This file was automatically generated for the LuaDist project.
+
 package = "std.normalize"
 version = "1.0.1-2"
 
@@ -15,10 +17,16 @@ description = {
   license = "MIT/X11",
 }
 
+-- LuaDist source
 source = {
-  url = "http://github.com/lua-stdlib/normalize/archive/v1.0.1.zip",
-  dir = "normalize-1.0.1",
+  tag = "1.0.1-2",
+  url = "git://github.com/LuaDist-testing/std.normalize.git"
 }
+-- Original source
+-- source = {
+--   url = "http://github.com/lua-stdlib/normalize/archive/v1.0.1.zip",
+--   dir = "normalize-1.0.1",
+-- }
 
 dependencies = {
   "lua >= 5.1, < 5.4",
